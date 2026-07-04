@@ -42,7 +42,7 @@ public class Robot extends TimedRobot {
 
   // feeder 和 shooter 按键触发时的目标速度，单位是 rotations per second。
   // TODO: 装上真实机构和 game piece 后调节这两个目标转速。
-  private static final double kFeederVelocityRps = 20.0;
+  private static final double kFeederVelocityRps = 40.0;
   private static final double kShooterVelocityRps = 80.0;
 
   // feeder 的速度闭环参数。kS/kV 是前馈，kP/kI/kD 是 PID 反馈。
@@ -125,6 +125,7 @@ public class Robot extends TimedRobot {
 
     // 反转右侧底盘，因为差速底盘左右电机通常镜像安装。
     m_rightMaster.setInverted(true);
+    m_rightFollower.setInverted(true);
 
     // 底盘设置为 Brake，松开摇杆时更快停下，也更不容易被推动。
     m_leftMaster.setNeutralMode(NeutralMode.Brake);
@@ -157,15 +158,15 @@ public class Robot extends TimedRobot {
     // arcadeDrive 用一个前后量和一个旋转量控制差速底盘。
     m_drive.arcadeDrive(forward, rotation);
 
-    // 按住 A 键时 feeder 按目标速度运行，松开 A 键时 feeder 停止。
-    if (m_controller.getAButton()) {
+    // 按住 B 键时 feeder 按目标速度运行，松开 B 键时 feeder 停止。
+    if (m_controller.getBButton()) {
       m_feeder.setControl(m_feederVelocityRequest.withVelocity(kFeederVelocityRps));
     } else {
       m_feeder.setControl(m_stopRequest);
     }
 
-    // 按住 B 键时 shooter 按目标速度运行，松开 B 键时 shooter 停止。
-    if (m_controller.getBButton()) {
+    // 按住 A 键时 shooter 按目标速度运行，松开 A 键时 shooter 停止。
+    if (m_controller.getAButton()) {
       m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kShooterVelocityRps));
     } else {
       m_shooter.setControl(m_stopRequest);
