@@ -40,10 +40,11 @@ public class Robot extends TimedRobot {
   private static final InvertedValue kFeederInverted = InvertedValue.Clockwise_Positive;
   private static final InvertedValue kShooterInverted = InvertedValue.CounterClockwise_Positive;
 
-  // feeder 和 shooter 按键触发时的目标速度，单位是 rotations per second。
-  // TODO: 装上真实机构和 game piece 后调节这两个目标转速。
+  // feeder, shooter 和 intake 按键触发时的目标速度，单位是 rotations per second。
   private static final double kFeederVelocityRps = 40.0;
   private static final double kShooterVelocityRps = 80.0;
+  private static final double kIntakeShooterVelocityRps = 20.0;  //TODO: Tune
+  private static final double kIntakeFeederVelocityRps = 20.0;  //TODO: Tune
 
   // feeder 的速度闭环参数。kS/kV 是前馈，kP/kI/kD 是 PID 反馈。
   // TODO: 确认传感器单位和方向后，重新调节 feeder 的前馈和 PID 参数。
@@ -170,6 +171,15 @@ public class Robot extends TimedRobot {
       m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kShooterVelocityRps));
     } else {
       m_shooter.setControl(m_stopRequest);
+    }
+
+    // 按住 X 键时 intake 按目标速度运行，松开 X 键时 intake 停止。
+    if (m_controller.getXButton()) {
+      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kIntakeShooterVelocityRps));
+      m_feeder.setControl(m_feederVelocityRequest.withVelocity(kIntakeFeederVelocityRps));
+    } else {
+      m_shooter.setControl(m_stopRequest);
+      m_feeder.setControl(m_stopRequest);
     }
   }
 
