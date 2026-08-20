@@ -10,6 +10,7 @@ import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -42,9 +43,9 @@ public class Robot extends TimedRobot {
 
   // feeder, shooter 和 intake 按键触发时的目标速度，单位是 rotations per second。
   private static final double kFeederVelocityRps = 40.0;
-  private static final double kShooterVelocityRps = 80.0;
-  private static final double kIntakeShooterVelocityRps = 20.0;  //TODO: Tune
-  private static final double kIntakeFeederVelocityRps = -20.0;  //TODO: Tune
+  private static final double kShooterTowerVelocityRps = 20.0;
+  private static final double kIntakeShooterVelocityRps = 10.0;  //TODO: Tune
+  private static final double kIntakeFeederVelocityRps = -10.0;  //TODO: Tune
 
   // feeder 的速度闭环参数。kS/kV 是前馈，kP/kI/kD 是 PID 反馈。
   // TODO: 确认传感器单位和方向后，重新调节 feeder 的前馈和 PID 参数。
@@ -57,8 +58,8 @@ public class Robot extends TimedRobot {
   // shooter 的速度闭环参数。shooter 转速稳定性通常会直接影响射出效果。
   // TODO: 安装 shooter 轮子后，重新调节 shooter 的前馈和 PID 参数。\[]
   private static final double kShooterKs = 0.20;
-  private static final double kShooterKv = 0.12;
-  private static final double kShooterKp = 0.15;
+  private static final double kShooterKv = 0.5;
+  private static final double kShooterKp = 0.7;
   private static final double kShooterKi = 0.0;
   private static final double kShooterKd = 0.0;
 
@@ -164,8 +165,8 @@ public class Robot extends TimedRobot {
       m_feeder.setControl(m_feederVelocityRequest.withVelocity(kIntakeFeederVelocityRps));
     }
     else if (m_controller.getAButton()) {
-      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kShooterVelocityRps));
-      m_feeder.setControl(m_stopRequest);
+      m_shooter.setControl(new VoltageOut(11));
+      m_feeder.setControl(new VoltageOut(9));
     }
     else if (m_controller.getBButton()) {
       m_feeder.setControl(m_feederVelocityRequest.withVelocity(kFeederVelocityRps));
