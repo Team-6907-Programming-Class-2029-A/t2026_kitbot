@@ -37,14 +37,14 @@ public class Robot extends TimedRobot {
   private static final int kShooterCanId = 6;
 
   // feeder 和 shooter 的电机方向。Clockwise/CounterClockwise 表示正输出时传感器方向。
-  private static final InvertedValue kFeederInverted = InvertedValue.Clockwise_Positive;
-  private static final InvertedValue kShooterInverted = InvertedValue.CounterClockwise_Positive;
+  private static final InvertedValue kFeederInverted = InvertedValue.CounterClockwise_Positive;
+  private static final InvertedValue kShooterInverted = InvertedValue.Clockwise_Positive;
 
   // feeder, shooter 和 intake 按键触发时的目标速度，单位是 rotations per second。
   private static final double kFeederVelocityRps = 40.0;
   private static final double kShooterVelocityRps = 80.0;
   private static final double kIntakeShooterVelocityRps = 20.0;  //TODO: Tune
-  private static final double kIntakeFeederVelocityRps = 20.0;  //TODO: Tune
+  private static final double kIntakeFeederVelocityRps = -20.0;  //TODO: Tune
 
   // feeder 的速度闭环参数。kS/kV 是前馈，kP/kI/kD 是 PID 反馈。
   // TODO: 确认传感器单位和方向后，重新调节 feeder 的前馈和 PID 参数。
@@ -55,7 +55,7 @@ public class Robot extends TimedRobot {
   private static final double kFeederKd = 0.0;
 
   // shooter 的速度闭环参数。shooter 转速稳定性通常会直接影响射出效果。
-  // TODO: 安装 shooter 轮子后，重新调节 shooter 的前馈和 PID 参数。
+  // TODO: 安装 shooter 轮子后，重新调节 shooter 的前馈和 PID 参数。\[]
   private static final double kShooterKs = 0.20;
   private static final double kShooterKv = 0.12;
   private static final double kShooterKp = 0.15;
@@ -159,25 +159,19 @@ public class Robot extends TimedRobot {
     // arcadeDrive 用一个前后量和一个旋转量控制差速底盘。
     m_drive.arcadeDrive(forward, rotation);
 
-    // 按住 B 键时 feeder 按目标速度运行，松开 B 键时 feeder 停止。
-    if (m_controller.getBButton()) {
-      m_feeder.setControl(m_feederVelocityRequest.withVelocity(kFeederVelocityRps));
-    } else {
-      m_feeder.setControl(m_stopRequest);
-    }
-
-    // 按住 A 键时 shooter 按目标速度运行，松开 A 键时 shooter 停止。
-    if (m_controller.getAButton()) {
-      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kShooterVelocityRps));
-    } else {
-      m_shooter.setControl(m_stopRequest);
-    }
-
-    // 按住 X 键时 intake 按目标速度运行，松开 X 键时 intake 停止。
     if (m_controller.getXButton()) {
       m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kIntakeShooterVelocityRps));
       m_feeder.setControl(m_feederVelocityRequest.withVelocity(kIntakeFeederVelocityRps));
-    } else {
+    }
+    else if (m_controller.getAButton()) {
+      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(kShooterVelocityRps));
+      m_feeder.setControl(m_stopRequest);
+    }
+    else if (m_controller.getBButton()) {
+      m_feeder.setControl(m_feederVelocityRequest.withVelocity(kFeederVelocityRps));
+      m_shooter.setControl(m_stopRequest);
+    }
+    else {
       m_shooter.setControl(m_stopRequest);
       m_feeder.setControl(m_stopRequest);
     }
