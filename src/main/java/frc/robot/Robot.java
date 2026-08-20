@@ -168,6 +168,10 @@ public class Robot extends TimedRobot {
       m_shooter.setControl(new VoltageOut(11));
       m_feeder.setControl(new VoltageOut(9));
     }
+    else if (m_controller.getYButton()) {
+      m_shooter.setControl(new VoltageOut(7));
+      m_feeder.setControl(new VoltageOut(6));
+    }
     else if (m_controller.getBButton()) {
       m_feeder.setControl(m_feederVelocityRequest.withVelocity(kFeederVelocityRps));
       m_shooter.setControl(m_stopRequest);
