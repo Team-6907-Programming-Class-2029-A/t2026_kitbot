@@ -1,0 +1,47 @@
+// Copyright (c) FIRST and other WPILib contributors.
+// Open Source Software; you can modify and/or share it under the terms of
+// the WPILib BSD license file in the root directory of this project.
+
+package frc.robot;
+
+import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
+import frc.robot.subsystems.Drive;
+import frc.robot.subsystems.Shooter;
+
+/**
+ * RobotContainer 负责存放所有 subsystem、手柄绑定和 autonomous 命令。
+ * 真正的周期性逻辑都由 command-based 调度器自动运行。
+ */
+public class RobotContainer {
+  // subsystem 对象。
+  private final Drive m_drive = new Drive();
+  private final Shooter m_shooter = new Shooter();
+
+  // XboxController 负责读取手柄摇杆和按键。
+  private final XboxController m_controller = new XboxController(Constants.kControllerPort);
+
+  public RobotContainer() {
+    configureButtonBindings();
+  }
+
+  /** 配置手柄按键和命令的绑定。 */
+  private void configureButtonBindings() {
+    // 默认命令:teleop 时一直用摇杆开底盘。
+    m_drive.setDefaultCommand(m_drive.arcadeDriveCommand(m_controller));
+
+    // 按住左 bumper 吸球。
+    new Trigger(m_controller::getLeftBumperButton)
+        .whileTrue(m_shooter.intakeCommand());
+
+    // 按住右 bumper 高速射球。
+    new Trigger(m_controller::getRightBumperButton)
+        .whileTrue(m_shooter.shootFastCommand());
+
+    // 按住 Y 低速射球。
+    new Trigger(m_controller::getYButton).whileTrue(m_shooter.shootSlowCommand());
+
+    // 按住 B 只转 feeder,把球送到发射位置。
+    new Trigger(m_controller::getBButton).whileTrue(m_shooter.feedCommand());
+  }
+}
