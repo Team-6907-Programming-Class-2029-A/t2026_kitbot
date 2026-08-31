@@ -25,14 +25,22 @@ public final class Constants {
   public static final InvertedValue kFeederInverted = InvertedValue.CounterClockwise_Positive;
   public static final InvertedValue kShooterInverted = InvertedValue.Clockwise_Positive;
 
-  /** 按键触发时的目标电压/速度。速度单位是 rotations per second。 */
+  /** 按键触发时的目标速度,单位是 rotations per second。 */
   public static final double kFeederVelocityRps = 40.0;
   public static final double kIntakeShooterVelocityRps = 10.0; // TODO: Tune
   public static final double kIntakeFeederVelocityRps = -10.0; // TODO: Tune
-  public static final double kShootFastShooterVoltage = 11.0;
-  public static final double kShootFastFeederVoltage = 9.0;
-  public static final double kShootSlowShooterVoltage = 7.0;
-  public static final double kShootSlowFeederVoltage = 6.0;
+
+  /** 射球目标速度。射球流程先让 shooter 升速,达到转速后 feeder 才开始 feed。 */
+  public static final double kLaunchFastShooterVelocityRps = 20.0; // TODO: Tune
+  public static final double kLaunchFastFeederVelocityRps = 40.0; // TODO: Tune
+  public static final double kLaunchSlowShooterVelocityRps = 14.0; // TODO: Tune
+  public static final double kLaunchSlowFeederVelocityRps = 30.0; // TODO: Tune
+
+  /** 射球升速阶段 feeder 反向慢转,把球挡在 shooter 外,防止没升到转速就射出。 */
+  public static final double kSpinUpFeederVelocityRps = -6.0; // TODO: Tune
+
+  /** shooter 判定“已升到转速”的允许误差。 */
+  public static final double kLaunchShooterVelocityToleranceRps = 1.0; // TODO: Tune
 
   /** feeder 的速度闭环参数。kS/kV 是前馈,kP/kI/kD 是 PID 反馈。 */
   public static final double kFeederKs = 0.20;

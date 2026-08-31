@@ -34,12 +34,15 @@ public class RobotContainer {
     new Trigger(m_controller::getLeftBumperButton)
         .whileTrue(m_shooter.intakeCommand());
 
-    // 按住右 bumper 高速射球。
-    new Trigger(m_controller::getRightBumperButton)
-        .whileTrue(m_shooter.shootFastCommand());
+    // 按住 X 反向排球,把球从吸球口退出去。
+    new Trigger(m_controller::getXButton).whileTrue(m_shooter.ejectCommand());
 
-    // 按住 Y 低速射球。
-    new Trigger(m_controller::getYButton).whileTrue(m_shooter.shootSlowCommand());
+    // 按住右 bumper 高速射球(先升速到目标转速,再 feed 射出)。
+    new Trigger(m_controller::getRightBumperButton)
+        .whileTrue(m_shooter.launchFastCommand());
+
+    // 按住 Y 低速射球(先升速到目标转速,再 feed 射出)。
+    new Trigger(m_controller::getYButton).whileTrue(m_shooter.launchSlowCommand());
 
     // 按住 B 只转 feeder,把球送到发射位置。
     new Trigger(m_controller::getBButton).whileTrue(m_shooter.feedCommand());
