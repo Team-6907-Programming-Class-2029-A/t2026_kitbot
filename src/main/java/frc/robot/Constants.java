@@ -25,7 +25,41 @@ public final class Constants {
   public static final InvertedValue kFeederInverted = InvertedValue.CounterClockwise_Positive;
   public static final InvertedValue kShooterInverted = InvertedValue.Clockwise_Positive;
 
-  /** 按键触发时的目标速度,单位是 rotations per second。 */
+  /** Shooter 的控制模式:VOLTAGE 直接给电压,VELOCITY 用速度闭环。 */
+  public enum ShooterControlMode {
+    VOLTAGE,
+    VELOCITY
+  }
+
+  /** 当前使用的控制模式。 */
+  public static final ShooterControlMode kShooterControlMode = ShooterControlMode.VOLTAGE;
+
+  //
+  // ---- VOLTAGE 模式参数 ----
+  //
+
+  /** 吸球/吐球电压(来自 AdvantageKit kitbot_2026 模板)。 */
+  public static final double kIntakingFeederVoltage = -12.0;
+  public static final double kIntakingShooterVoltage = 10.0;
+
+  /** 射球电压(沿用本仓库之前的数值)。射球流程同样先升速再 feed。 */
+  public static final double kLaunchFastShooterVoltage = 11.0;
+  public static final double kLaunchFastFeederVoltage = 9.0;
+  public static final double kLaunchSlowShooterVoltage = 7.0;
+  public static final double kLaunchSlowFeederVoltage = 6.0;
+
+  /** 射球升速阶段 feeder 反向电压(来自 AK 模板)和升速时间。 */
+  public static final double kSpinUpFeederVoltage = -6.0;
+  public static final double kSpinUpSeconds = 1.0;
+
+  /** B 键只转 feeder 时的电压。 */
+  public static final double kFeederVoltage = 9.0; // TODO: Tune
+
+  //
+  // ---- VELOCITY 模式参数(单位 rotations per second) ----
+  //
+
+  /** 按键触发时的目标速度。 */
   public static final double kFeederVelocityRps = 40.0;
   public static final double kIntakeShooterVelocityRps = 10.0; // TODO: Tune
   public static final double kIntakeFeederVelocityRps = -10.0; // TODO: Tune

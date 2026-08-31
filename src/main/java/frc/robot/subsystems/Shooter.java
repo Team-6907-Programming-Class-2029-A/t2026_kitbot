@@ -7,16 +7,20 @@ package frc.robot.subsystems;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import frc.robot.Constants.ShooterControlMode;
 
 /**
  * 射击子系统:包含 feeder(供球)和 shooter(发射)两组电机。
  * feeder 和 shooter 总是配合动作,所以放在同一个 subsystem 里管理。
- * 所有动作都用速度闭环(VelocityVoltage)控制。
+ * 控制模式由 {@link Constants#kShooterControlMode} 决定:
+ * VOLTAGE 直接给电压,VELOCITY 用速度闭环。
  */
 public class Shooter extends SubsystemBase {
   private final TalonFX m_feeder = new TalonFX(Constants.kFeederCanId);
@@ -62,79 +66,104 @@ public class Shooter extends SubsystemBase {
     m_feeder.setControl(m_stopRequest);
   }
 
-  /** 判断 shooter 是否已经升到目标转速(允许一定误差)。 */
-  private boolean atShooterSpeed(double targetRps) {
-    return Math.abs(m_shooter.getVelocity().getValueAsDouble())
-        >= Math.abs(targetRps) - Constants.kLaunchShooterVelocityToleranceRps;
+  /** 按当前模式给 feeder 和 shooter 设定输出。 */
+  private void setOutputs(double feederValue, double shooterValue) {
+    if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
+      m_feeder.setControl(new VoltageOut(feederValue));
+      m_shooter.setControl(new VoltageOut(shooterValue));
+    } else {
+      m_feeder.setControl(m_feederVelocityRequest.withVelocity(feederValue));
+      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(shooterValue));
+    }
   }
 
-  /** 按住左 bumper 时吸球:shooter 慢速正转,feeder 反转把球吸进来。 */
+  /** 按住左 bumper 时吸球。 */
   public Command intakeCommand() {
     return run(
-        () -> {
-          m_shooter.setControl(
-              m_shooterVelocityRequest.withVelocity(Constants.kIntakeShooterVelocityRps));
-          m_feeder.setControl(
-              m_feederVelocityRequest.withVelocity(Constants.kIntakeFeederVelocityRps));
-        });
+        () ->
+            setOutputs(
+                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                    ? Constants.kIntakingFeederVoltage
+                    : Constants.kIntakeFeederVelocityRps,
+                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                    ? Constants.kIntakingShooterVoltage
+                    : Constants.kIntakeShooterVelocityRps));
   }
 
-  /**
-   * 反向转动 feeder 和 shooter,把球从吸球口排出(和 AdvantageKit 的 eject 一样,
-   * 速度取吸球速度的反向)。
-   */
+  /** 反向转动 feeder 和 shooter,把球从吸球口排出(速度/电压取吸球的反向)。 */
   public Command ejectCommand() {
     return run(
-        () -> {
-          m_shooter.setControl(
-              m_shooterVelocityRequest.withVelocity(-Constants.kIntakeShooterVelocityRps));
-          m_feeder.setControl(
-              m_feederVelocityRequest.withVelocity(-Constants.kIntakeFeederVelocityRps));
-        });
+        () ->
+            setOutputs(
+                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                    ? -Constants.kIntakingFeederVoltage
+                    : -Constants.kIntakeFeederVelocityRps,
+                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                    ? -Constants.kIntakingShooterVoltage
+                    : -Constants.kIntakeShooterVelocityRps));
   }
 
   /**
    * 射球流程(和 AdvantageKit 的 launch 一样先升速再射):
-   * 升速阶段 shooter 目标转速闭环加速,feeder 反向慢转把球挡在 shooter 外;
-   * shooter 达到目标转速后 feeder 才正向 feed,把球送进已加速的 shooter 射出。
+   * 升速阶段 shooter 加速,feeder 反向慢转把球挡在 shooter 外;
+   * 升速完成后 feeder 才正向 feed,把球送进已加速的 shooter 射出。
+   * VOLTAGE 模式升速判定用固定时间(AK 做法),VELOCITY 模式用实测转速。
    */
-  private Command launchCommand(double shooterVelocityRps, double feederVelocityRps) {
-    // 第一阶段:升速,直到 shooter 达到目标转速。
-    return run(
-            () -> {
-              m_shooter.setControl(m_shooterVelocityRequest.withVelocity(shooterVelocityRps));
-              m_feeder.setControl(
-                  m_feederVelocityRequest.withVelocity(Constants.kSpinUpFeederVelocityRps));
-            })
-        .until(() -> atShooterSpeed(shooterVelocityRps))
-        // 第二阶段:feeder 开始 feed 射球。
-        .andThen(
-            run(
-                () -> {
-                  m_shooter.setControl(
-                      m_shooterVelocityRequest.withVelocity(shooterVelocityRps));
-                  m_feeder.setControl(m_feederVelocityRequest.withVelocity(feederVelocityRps));
-                }));
+  private Command launchCommand(
+      double feederValue, double shooterValue, double spinUpFeederValue) {
+    // 第一阶段:升速。VOLTAGE 用固定时间(AK 做法),VELOCITY 等 shooter 达到目标转速。
+    Command spinUp = run(() -> setOutputs(spinUpFeederValue, shooterValue));
+    if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
+      spinUp = spinUp.withTimeout(Constants.kSpinUpSeconds);
+    } else {
+      spinUp =
+          spinUp.until(
+              () ->
+                  Math.abs(m_shooter.getVelocity().getValueAsDouble())
+                      >= Math.abs(shooterValue) - Constants.kLaunchShooterVelocityToleranceRps);
+    }
+
+    // 第二阶段:feeder 开始 feed 射球。
+    return spinUp.andThen(run(() -> setOutputs(feederValue, shooterValue)));
   }
 
   /** 按住右 bumper 时高速射球(先升速再 feed)。 */
   public Command launchFastCommand() {
     return launchCommand(
-        Constants.kLaunchFastShooterVelocityRps, Constants.kLaunchFastFeederVelocityRps);
+        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+            ? Constants.kLaunchFastFeederVoltage
+            : Constants.kLaunchFastFeederVelocityRps,
+        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+            ? Constants.kLaunchFastShooterVoltage
+            : Constants.kLaunchFastShooterVelocityRps,
+        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+            ? Constants.kSpinUpFeederVoltage
+            : Constants.kSpinUpFeederVelocityRps);
   }
 
   /** 按住 Y 时低速射球(先升速再 feed)。 */
   public Command launchSlowCommand() {
     return launchCommand(
-        Constants.kLaunchSlowShooterVelocityRps, Constants.kLaunchSlowFeederVelocityRps);
+        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+            ? Constants.kLaunchSlowFeederVoltage
+            : Constants.kLaunchSlowFeederVelocityRps,
+        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+            ? Constants.kLaunchSlowShooterVoltage
+            : Constants.kLaunchSlowShooterVelocityRps,
+        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+            ? Constants.kSpinUpFeederVoltage
+            : Constants.kSpinUpFeederVelocityRps);
   }
 
   /** 按住 B 时只转 feeder(shooter 停转),用于把球送到发射位置。 */
   public Command feedCommand() {
     return run(
         () -> {
-          m_feeder.setControl(m_feederVelocityRequest.withVelocity(Constants.kFeederVelocityRps));
           m_shooter.setControl(m_stopRequest);
+          m_feeder.setControl(
+              Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                  ? new VoltageOut(Constants.kFeederVoltage)
+                  : m_feederVelocityRequest.withVelocity(Constants.kFeederVelocityRps));
         });
   }
 }
