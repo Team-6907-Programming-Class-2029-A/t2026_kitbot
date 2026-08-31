@@ -4,11 +4,12 @@
 
 package frc.robot.subsystems;
 
+import java.util.function.DoubleSupplier;
+
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
 
-import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -58,11 +59,10 @@ public class Drive extends SubsystemBase {
   }
 
   /** 持续用摇杆值驱动底盘的命令,一般作为 teleop 默认命令。 */
-  public Command arcadeDriveCommand(XboxController controller) {
+  public Command arcadeDriveCommand(DoubleSupplier forward, DoubleSupplier rotation) {
     return run(
         () ->
-            arcadeDrive(
-                // 加负号是为了让“摇杆向上”对应机器人前进。
-                -controller.getLeftY(), -controller.getRightX()));
+            // 加负号是为了让“摇杆向上”对应机器人前进。
+            arcadeDrive(-forward.getAsDouble(), -rotation.getAsDouble()));
   }
 }

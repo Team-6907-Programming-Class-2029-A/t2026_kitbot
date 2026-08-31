@@ -4,9 +4,8 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.subsystems.Drive;
 import frc.robot.subsystems.Shooter;
 
@@ -19,8 +18,9 @@ public class RobotContainer {
   private final Drive m_drive = new Drive();
   private final Shooter m_shooter = new Shooter();
 
-  // XboxController 负责读取手柄摇杆和按键。
-  private final XboxController m_controller = new XboxController(Constants.kControllerPort);
+  // 手柄。CommandXboxController 直接提供按键 Trigger,方便绑定命令。
+  private final CommandXboxController m_controller =
+      new CommandXboxController(Constants.kControllerPort);
 
   public RobotContainer() {
     configureButtonBindings();
@@ -29,24 +29,23 @@ public class RobotContainer {
   /** 配置手柄按键和命令的绑定。 */
   private void configureButtonBindings() {
     // 默认命令:teleop 时一直用摇杆开底盘。
-    m_drive.setDefaultCommand(m_drive.arcadeDriveCommand(m_controller));
+    m_drive.setDefaultCommand(
+        m_drive.arcadeDriveCommand(m_controller::getLeftY, m_controller::getRightX));
 
     // 按住左 bumper 吸球。
-    new Trigger(m_controller::getLeftBumperButton)
-        .whileTrue(m_shooter.intakeCommand());
+    m_controller.leftBumper().whileTrue(m_shooter.intakeCommand());
 
     // 按住 X 反向排球,把球从吸球口退出去。
-    new Trigger(m_controller::getXButton).whileTrue(m_shooter.ejectCommand());
+    m_controller.x().whileTrue(m_shooter.ejectCommand());
 
     // 按住右 bumper 高速射球(先升速到目标转速,再 feed 射出)。
-    new Trigger(m_controller::getRightBumperButton)
-        .whileTrue(m_shooter.launchFastCommand());
+    m_controller.rightBumper().whileTrue(m_shooter.launchFastCommand());
 
     // 按住 Y 低速射球(先升速到目标转速,再 feed 射出)。
-    new Trigger(m_controller::getYButton).whileTrue(m_shooter.launchSlowCommand());
+    m_controller.y().whileTrue(m_shooter.launchSlowCommand());
 
     // 按住 B 只转 feeder,把球送到发射位置。
-    new Trigger(m_controller::getBButton).whileTrue(m_shooter.feedCommand());
+    m_controller.b().whileTrue(m_shooter.feedCommand());
   }
 
   /** 自动阶段执行的命令:直接低速射球(先升速再 feed)。 */
