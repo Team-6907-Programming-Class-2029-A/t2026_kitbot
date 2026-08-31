@@ -42,7 +42,7 @@ public class RobotContainer {
     m_controller.rightBumper().whileTrue(m_shooter.launchFastCommand());
 
     // 按住 Y 低速射球(先升速到目标转速,再 feed 射出)。
-    m_controller.y().whileTrue(m_shooter.launchSlowCommand());
+    m_controller.rightTrigger().whileTrue(m_shooter.launchSlowCommand());
 
     // 按住 B 只转 feeder,把球送到发射位置。
     m_controller.b().whileTrue(m_shooter.feedCommand());
