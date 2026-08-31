@@ -66,65 +66,82 @@ public class Shooter extends SubsystemBase {
     m_feeder.setControl(m_stopRequest);
   }
 
-  /** 按当前模式给 feeder 和 shooter 设定输出。 */
-  private void setOutputs(double feederValue, double shooterValue) {
+  /** 按当前模式给 feeder 设定输出(电压或目标转速)。 */
+  private void setFeeder(double value) {
     if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
-      m_feeder.setControl(new VoltageOut(feederValue));
-      m_shooter.setControl(new VoltageOut(shooterValue));
+      m_feeder.setControl(new VoltageOut(value));
     } else {
-      m_feeder.setControl(m_feederVelocityRequest.withVelocity(feederValue));
-      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(shooterValue));
+      m_feeder.setControl(m_feederVelocityRequest.withVelocity(value));
     }
+  }
+
+  /** 按当前模式给 shooter 设定输出(电压或目标转速)。 */
+  private void setShooter(double value) {
+    if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
+      m_shooter.setControl(new VoltageOut(value));
+    } else {
+      m_shooter.setControl(m_shooterVelocityRequest.withVelocity(value));
+    }
+  }
+
+  /** 判断 shooter 是否已经升到目标转速(允许一定误差)。 */
+  private boolean atShooterSpeed(double targetRps) {
+    return Math.abs(m_shooter.getVelocity().getValueAsDouble())
+        >= Math.abs(targetRps) - Constants.kLaunchShooterVelocityToleranceRps;
   }
 
   /** 按住左 bumper 时吸球。 */
   public Command intakeCommand() {
     return run(
-        () ->
-            setOutputs(
-                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-                    ? Constants.kIntakingFeederVoltage
-                    : Constants.kIntakeFeederVelocityRps,
-                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-                    ? Constants.kIntakingShooterVoltage
-                    : Constants.kIntakeShooterVelocityRps));
+        () -> {
+          setFeeder(
+              Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                  ? Constants.kIntakingFeederVoltage
+                  : Constants.kIntakeFeederVelocityRps);
+          setShooter(
+              Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                  ? Constants.kIntakingShooterVoltage
+                  : Constants.kIntakeShooterVelocityRps);
+        });
   }
 
   /** 反向转动 feeder 和 shooter,把球从吸球口排出(速度/电压取吸球的反向)。 */
   public Command ejectCommand() {
     return run(
-        () ->
-            setOutputs(
-                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-                    ? -Constants.kIntakingFeederVoltage
-                    : -Constants.kIntakeFeederVelocityRps,
-                Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-                    ? -Constants.kIntakingShooterVoltage
-                    : -Constants.kIntakeShooterVelocityRps));
+        () -> {
+          setFeeder(
+              Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                  ? -Constants.kIntakingFeederVoltage
+                  : -Constants.kIntakeFeederVelocityRps);
+          setShooter(
+              Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
+                  ? -Constants.kIntakingShooterVoltage
+                  : -Constants.kIntakeShooterVelocityRps);
+        });
   }
 
   /**
    * 射球流程(和 AdvantageKit 的 launch 一样先升速再射):
-   * 升速阶段 shooter 加速,feeder 反向慢转把球挡在 shooter 外;
+   * 升速阶段 feeder 保持 0 输出,让 shooter 先转起来;
    * 升速完成后 feeder 才正向 feed,把球送进已加速的 shooter 射出。
    * VOLTAGE 模式升速判定用固定时间(AK 做法),VELOCITY 模式用实测转速。
    */
-  private Command launchCommand(
-      double feederValue, double shooterValue, double spinUpFeederValue) {
-    // 第一阶段:升速。VOLTAGE 用固定时间(AK 做法),VELOCITY 等 shooter 达到目标转速。
-    Command spinUp = run(() -> setOutputs(spinUpFeederValue, shooterValue));
+  private Command launchCommand(double feederValue, double shooterValue) {
+    // 第一阶段:升速,feeder 保持 0。VOLTAGE 用固定时间,VELOCITY 等 shooter 达到目标转速。
+    Command spinUp = run(() -> setShooter(shooterValue));
     if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
       spinUp = spinUp.withTimeout(Constants.kSpinUpSeconds);
     } else {
-      spinUp =
-          spinUp.until(
-              () ->
-                  Math.abs(m_shooter.getVelocity().getValueAsDouble())
-                      >= Math.abs(shooterValue) - Constants.kLaunchShooterVelocityToleranceRps);
+      spinUp = spinUp.until(() -> atShooterSpeed(shooterValue));
     }
 
     // 第二阶段:feeder 开始 feed 射球。
-    return spinUp.andThen(run(() -> setOutputs(feederValue, shooterValue)));
+    return spinUp.andThen(
+        run(
+            () -> {
+              setFeeder(feederValue);
+              setShooter(shooterValue);
+            }));
   }
 
   /** 按住右 bumper 时高速射球(先升速再 feed)。 */
@@ -135,10 +152,7 @@ public class Shooter extends SubsystemBase {
             : Constants.kLaunchFastFeederVelocityRps,
         Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
             ? Constants.kLaunchFastShooterVoltage
-            : Constants.kLaunchFastShooterVelocityRps,
-        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-            ? Constants.kSpinUpFeederVoltage
-            : Constants.kSpinUpFeederVelocityRps);
+            : Constants.kLaunchFastShooterVelocityRps);
   }
 
   /** 按住 Y 时低速射球(先升速再 feed)。 */
@@ -149,10 +163,7 @@ public class Shooter extends SubsystemBase {
             : Constants.kLaunchSlowFeederVelocityRps,
         Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
             ? Constants.kLaunchSlowShooterVoltage
-            : Constants.kLaunchSlowShooterVelocityRps,
-        Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-            ? Constants.kSpinUpFeederVoltage
-            : Constants.kSpinUpFeederVelocityRps);
+            : Constants.kLaunchSlowShooterVelocityRps);
   }
 
   /** 按住 B 时只转 feeder(shooter 停转),用于把球送到发射位置。 */
@@ -160,10 +171,10 @@ public class Shooter extends SubsystemBase {
     return run(
         () -> {
           m_shooter.setControl(m_stopRequest);
-          m_feeder.setControl(
+          setFeeder(
               Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
-                  ? new VoltageOut(Constants.kFeederVoltage)
-                  : m_feederVelocityRequest.withVelocity(Constants.kFeederVelocityRps));
+                  ? Constants.kFeederVoltage
+                  : Constants.kFeederVelocityRps);
         });
   }
 }

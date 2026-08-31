@@ -48,8 +48,7 @@ public final class Constants {
   public static final double kLaunchSlowShooterVoltage = 7.0;
   public static final double kLaunchSlowFeederVoltage = 6.0;
 
-  /** 射球升速阶段 feeder 反向电压(来自 AK 模板)和升速时间。 */
-  public static final double kSpinUpFeederVoltage = -6.0;
+  /** 射球升速时间(shooter 先转起来,feeder 保持 0)。 */
   public static final double kSpinUpSeconds = 1.0;
 
   /** B 键只转 feeder 时的电压。 */
@@ -64,14 +63,11 @@ public final class Constants {
   public static final double kIntakeShooterVelocityRps = 10.0; // TODO: Tune
   public static final double kIntakeFeederVelocityRps = -10.0; // TODO: Tune
 
-  /** 射球目标速度。射球流程先让 shooter 升速,达到转速后 feeder 才开始 feed。 */
+  /** 射球目标速度。射球流程先让 shooter 升到目标转速,feeder 才开始 feed。 */
   public static final double kLaunchFastShooterVelocityRps = 20.0; // TODO: Tune
   public static final double kLaunchFastFeederVelocityRps = 40.0; // TODO: Tune
   public static final double kLaunchSlowShooterVelocityRps = 14.0; // TODO: Tune
   public static final double kLaunchSlowFeederVelocityRps = 30.0; // TODO: Tune
-
-  /** 射球升速阶段 feeder 反向慢转,把球挡在 shooter 外,防止没升到转速就射出。 */
-  public static final double kSpinUpFeederVelocityRps = -6.0; // TODO: Tune
 
   /** shooter 判定“已升到转速”的允许误差。 */
   public static final double kLaunchShooterVelocityToleranceRps = 1.0; // TODO: Tune
