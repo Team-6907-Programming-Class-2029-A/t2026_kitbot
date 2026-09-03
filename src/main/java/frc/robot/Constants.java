@@ -45,11 +45,12 @@ public final class Constants {
   /** 射球电压(沿用本仓库之前的数值)。射球流程同样先升速再 feed。 */
   public static final double kLaunchFastShooterVoltage = 11.0;
   public static final double kLaunchFastFeederVoltage = 9.0;
-  public static final double kLaunchSlowShooterVoltage = 7.0;
+  public static final double kLaunchSlowShooterVoltage = 9.0;
   public static final double kLaunchSlowFeederVoltage = 6.0;
+  
 
   /** 射球升速时间(shooter 先转起来,feeder 保持 0)。 */
-  public static final double kSpinUpSeconds = 1.0;
+  public static final double kSpinUpSeconds = 2.0;
 
   /** B 键只转 feeder 时的电压。 */
   public static final double kFeederVoltage = 9.0; // TODO: Tune

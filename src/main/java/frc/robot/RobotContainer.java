@@ -80,6 +80,7 @@ public class RobotContainer {
 
   /** 自动阶段执行的命令:直接低速射球(先升速再 feed)。 */
   public Command getAutonomousCommand() {
-    return m_shooter.launchSlowCommand();
+    return (m_drive.arcadeDriveCommand(()->-0.3, ()->0.0)).withTimeout(3).andThen(m_shooter.launchSlowCommand());
+    
   }
 }
