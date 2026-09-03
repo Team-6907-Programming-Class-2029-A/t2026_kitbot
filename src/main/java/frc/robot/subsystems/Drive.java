@@ -6,6 +6,9 @@ package frc.robot.subsystems;
 
 import java.util.function.DoubleSupplier;
 
+import org.littletonrobotics.junction.AutoLog;
+import org.littletonrobotics.junction.Logger;
+
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
@@ -25,6 +28,20 @@ public class Drive extends SubsystemBase {
 
   // DifferentialDrive 负责把 forward/rotation 转换成左右两侧底盘输出。
   private final DifferentialDrive m_drive = new DifferentialDrive(m_leftMaster, m_rightMaster);
+
+  // AdvantageKit @AutoLog 自动生成的日志类,用于记录所有 input/output 变量。
+  @AutoLog
+  public static class DriveIOInputs {
+    public double leftAppliedVolts = 0.0;
+    public double rightAppliedVolts = 0.0;
+    public double leftCurrentAmps = 0.0;
+    public double rightCurrentAmps = 0.0;
+    public double forwardSetpoint = 0.0;
+    public double rotationSetpoint = 0.0;
+    public boolean isActive = false;
+  }
+
+  private final DriveIOInputsAutoLogged m_inputs = new DriveIOInputsAutoLogged();
 
   public Drive() {
     // 恢复默认配置,减少旧配置影响当前代码。
@@ -48,6 +65,18 @@ public class Drive extends SubsystemBase {
     m_rightFollower.setNeutralMode(NeutralMode.Brake);
   }
 
+  @Override
+  public void periodic() {
+    // 从电机读取实时数据,写入 inputs 供 AdvantageKit 记录。
+    m_inputs.leftAppliedVolts = m_leftMaster.getMotorOutputVoltage();
+    m_inputs.rightAppliedVolts = m_rightMaster.getMotorOutputVoltage();
+    m_inputs.leftCurrentAmps = m_leftMaster.getSupplyCurrent();
+    m_inputs.rightCurrentAmps = m_rightMaster.getSupplyCurrent();
+
+    // 将当前周期所有 inputs 提交给 AdvantageKit Logger。
+    Logger.processInputs("Drive", m_inputs);
+  }
+
   /**
    * 用一个前后量和一个旋转量控制差速底盘。
    *
@@ -55,14 +84,19 @@ public class Drive extends SubsystemBase {
    * @param rotation 旋转速度,正方向为顺时针(向右)
    */
   public void arcadeDrive(double forward, double rotation) {
+    m_inputs.forwardSetpoint = forward;
+    m_inputs.rotationSetpoint = rotation;
     m_drive.arcadeDrive(forward, rotation);
   }
 
   /** 持续用摇杆值驱动底盘的命令,一般作为 teleop 默认命令。 */
   public Command arcadeDriveCommand(DoubleSupplier forward, DoubleSupplier rotation) {
-    return run(
-        () ->
-            // 加负号是为了让“摇杆向上”对应机器人前进。
-            arcadeDrive(-forward.getAsDouble(), -rotation.getAsDouble()));
+    return run(() -> {
+          m_inputs.isActive = true;
+          // 加负号是为了让"摇杆向上"对应机器人前进。
+          arcadeDrive(-forward.getAsDouble(), -rotation.getAsDouble());
+        })
+        .finallyDo(() -> m_inputs.isActive = false)
+        .withName("DriveArcade");
   }
 }

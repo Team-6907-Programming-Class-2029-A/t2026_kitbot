@@ -39,8 +39,8 @@ public final class Constants {
   //
 
   /** 吸球/吐球电压(来自 AdvantageKit kitbot_2026 模板)。 */
-  public static final double kIntakingFeederVoltage = -12.0;
-  public static final double kIntakingShooterVoltage = 10.0;
+  public static final double kIntakingFeederVoltage = -8.0;
+  public static final double kIntakingShooterVoltage = 6.0;
 
   /** 射球电压(沿用本仓库之前的数值)。射球流程同样先升速再 feed。 */
   public static final double kLaunchFastShooterVoltage = 11.0;
@@ -60,8 +60,8 @@ public final class Constants {
 
   /** 按键触发时的目标速度。 */
   public static final double kFeederVelocityRps = 40.0;
-  public static final double kIntakeShooterVelocityRps = 10.0; // TODO: Tune
-  public static final double kIntakeFeederVelocityRps = -10.0; // TODO: Tune
+  public static final double kIntakeShooterVelocityRps = 20.0; // TODO: Tune
+  public static final double kIntakeFeederVelocityRps = -20.0; // TODO: Tune
 
   /** 射球目标速度。射球流程先让 shooter 升到目标转速,feeder 才开始 feed。 */
   public static final double kLaunchFastShooterVelocityRps = 20.0; // TODO: Tune
@@ -82,7 +82,7 @@ public final class Constants {
   /** shooter 的速度闭环参数。 */
   public static final double kShooterKs = 0.20;
   public static final double kShooterKv = 0.5;
-  public static final double kShooterKp = 0.7;
+  public static final double kShooterKp = 0.1;
   public static final double kShooterKi = 0.0;
-  public static final double kShooterKd = 0.0;
+  public static final double kShooterKd = 0.1;
 }

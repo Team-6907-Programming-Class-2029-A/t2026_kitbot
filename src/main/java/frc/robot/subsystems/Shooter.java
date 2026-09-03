@@ -4,6 +4,9 @@
 
 package frc.robot.subsystems;
 
+import org.littletonrobotics.junction.AutoLog;
+import org.littletonrobotics.junction.Logger;
+
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.VelocityVoltage;
@@ -11,6 +14,7 @@ import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -30,6 +34,26 @@ public class Shooter extends SubsystemBase {
   private final VelocityVoltage m_feederVelocityRequest = new VelocityVoltage(0.0);
   private final VelocityVoltage m_shooterVelocityRequest = new VelocityVoltage(0.0);
   private final NeutralOut m_stopRequest = new NeutralOut();
+
+  // AdvantageKit @AutoLog 自动生成的日志类,用于记录所有 input/output 变量。
+  @AutoLog
+  public static class ShooterIOInputs {
+    public double feederVelocityRps = 0.0;
+    public double shooterVelocityRps = 0.0;
+    public double feederAppliedVolts = 0.0;
+    public double shooterAppliedVolts = 0.0;
+    public double feederCurrentAmps = 0.0;
+    public double shooterCurrentAmps = 0.0;
+    public double feederSetpoint = 0.0;
+    public double shooterSetpoint = 0.0;
+    public boolean atTargetSpeed = false;
+    public boolean isIntaking = false;
+    public boolean isEjecting = false;
+    public boolean isLaunching = false;
+    public boolean isFeeding = false;
+  }
+
+  private final ShooterIOInputsAutoLogged m_inputs = new ShooterIOInputsAutoLogged();
 
   public Shooter() {
     // 创建 feeder 的配置,包括方向、刹车模式和速度闭环参数。
@@ -60,6 +84,20 @@ public class Shooter extends SubsystemBase {
     setDefaultCommand(run(this::stop));
   }
 
+  @Override
+  public void periodic() {
+    // 从电机读取实时数据,写入 inputs 供 AdvantageKit 记录。
+    m_inputs.feederVelocityRps = m_feeder.getVelocity().getValueAsDouble();
+    m_inputs.shooterVelocityRps = m_shooter.getVelocity().getValueAsDouble();
+    m_inputs.feederAppliedVolts = m_feeder.getMotorVoltage().getValueAsDouble();
+    m_inputs.shooterAppliedVolts = m_shooter.getMotorVoltage().getValueAsDouble();
+    m_inputs.feederCurrentAmps = m_feeder.getSupplyCurrent().getValueAsDouble();
+    m_inputs.shooterCurrentAmps = m_shooter.getSupplyCurrent().getValueAsDouble();
+
+    // 将当前周期所有 inputs 提交给 AdvantageKit Logger。
+    Logger.processInputs("Shooter", m_inputs);
+  }
+
   /** 让 feeder 和 shooter 停止输出。 */
   public void stop() {
     m_shooter.setControl(m_stopRequest);
@@ -68,6 +106,7 @@ public class Shooter extends SubsystemBase {
 
   /** 按当前模式给 feeder 设定输出(电压或目标转速)。 */
   private void setFeeder(double value) {
+    m_inputs.feederSetpoint = value;
     if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
       m_feeder.setControl(new VoltageOut(value));
     } else {
@@ -77,6 +116,7 @@ public class Shooter extends SubsystemBase {
 
   /** 按当前模式给 shooter 设定输出(电压或目标转速)。 */
   private void setShooter(double value) {
+    m_inputs.shooterSetpoint = value;
     if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
       m_shooter.setControl(new VoltageOut(value));
     } else {
@@ -86,14 +126,16 @@ public class Shooter extends SubsystemBase {
 
   /** 判断 shooter 是否已经升到目标转速(允许一定误差)。 */
   private boolean atShooterSpeed(double targetRps) {
-    return Math.abs(m_shooter.getVelocity().getValueAsDouble())
+    boolean atSpeed = Math.abs(m_shooter.getVelocity().getValueAsDouble())
         >= Math.abs(targetRps) - Constants.kLaunchShooterVelocityToleranceRps;
+    m_inputs.atTargetSpeed = atSpeed;
+    return atSpeed;
   }
 
   /** 按住左 bumper 时吸球。 */
   public Command intakeCommand() {
-    return run(
-        () -> {
+    return run(() -> {
+          m_inputs.isIntaking = true;
           setFeeder(
               Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
                   ? Constants.kIntakingFeederVoltage
@@ -102,13 +144,15 @@ public class Shooter extends SubsystemBase {
               Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
                   ? Constants.kIntakingShooterVoltage
                   : Constants.kIntakeShooterVelocityRps);
-        });
+        })
+        .finallyDo(() -> m_inputs.isIntaking = false)
+        .withName("ShooterIntake");
   }
 
   /** 反向转动 feeder 和 shooter,把球从吸球口排出(速度/电压取吸球的反向)。 */
   public Command ejectCommand() {
-    return run(
-        () -> {
+    return run(() -> {
+          m_inputs.isEjecting = true;
           setFeeder(
               Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
                   ? -Constants.kIntakingFeederVoltage
@@ -117,31 +161,52 @@ public class Shooter extends SubsystemBase {
               Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
                   ? -Constants.kIntakingShooterVoltage
                   : -Constants.kIntakeShooterVelocityRps);
-        });
+        })
+        .finallyDo(() -> m_inputs.isEjecting = false)
+        .withName("ShooterEject");
   }
 
   /**
-   * 射球流程(和 AdvantageKit 的 launch 一样先升速再射):
-   * 升速阶段 feeder 保持 0 输出,让 shooter 先转起来;
-   * 升速完成后 feeder 才正向 feed,把球送进已加速的 shooter 射出。
-   * VOLTAGE 模式升速判定用固定时间(AK 做法),VELOCITY 模式用实测转速。
+   * 射球流程(先升速再射):
+   * Phase 1: 只转 shooter,feeder 保持 0,等待升速完成。
+   * Phase 2: feeder 开始 feed,把球送进已加速的 shooter 射出。
+   * 使用单个 run() 内状态机,避免 andThen 调度切换时 defaultCommand 重新调度导致 feeder 被 stop() 覆盖。
+   * VOLTAGE 模式升速判定用固定时间,VELOCITY 模式用实测转速。
    */
   private Command launchCommand(double feederValue, double shooterValue) {
-    // 第一阶段:升速,feeder 保持 0。VOLTAGE 用固定时间,VELOCITY 等 shooter 达到目标转速。
-    Command spinUp = run(() -> setShooter(shooterValue));
-    if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
-      spinUp = spinUp.withTimeout(Constants.kSpinUpSeconds);
-    } else {
-      spinUp = spinUp.until(() -> atShooterSpeed(shooterValue));
-    }
+    return run(new Runnable() {
+      private boolean m_hasSpunUp = false;
+      private boolean m_initialized = false;
+      private double m_startTime = 0.0;
 
-    // 第二阶段:feeder 开始 feed 射球。
-    return spinUp.andThen(
-        run(
-            () -> {
-              setFeeder(feederValue);
-              setShooter(shooterValue);
-            }));
+      @Override
+      public void run() {
+        m_inputs.isLaunching = true;
+        if (!m_hasSpunUp) {
+          m_inputs.feederSetpoint = 0.0;
+          setShooter(shooterValue);
+          if (Constants.kShooterControlMode == ShooterControlMode.VOLTAGE) {
+            if (!m_initialized) {
+              m_startTime = Timer.getFPGATimestamp();
+              m_initialized = true;
+            }
+            if (Timer.getFPGATimestamp() - m_startTime >= Constants.kSpinUpSeconds) {
+              m_hasSpunUp = true;
+            }
+          } else {
+            if (atShooterSpeed(shooterValue)) {
+              m_hasSpunUp = true;
+            }
+          }
+        } else {
+          setFeeder(feederValue);
+          setShooter(shooterValue);
+        }
+      }
+    }).finallyDo(() -> {
+      m_inputs.isLaunching = false;
+      m_inputs.atTargetSpeed = false;
+    });
   }
 
   /** 按住右 bumper 时高速射球(先升速再 feed)。 */
@@ -152,7 +217,8 @@ public class Shooter extends SubsystemBase {
             : Constants.kLaunchFastFeederVelocityRps,
         Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
             ? Constants.kLaunchFastShooterVoltage
-            : Constants.kLaunchFastShooterVelocityRps);
+            : Constants.kLaunchFastShooterVelocityRps)
+        .withName("ShooterLaunchFast");
   }
 
   /** 按住 Y 时低速射球(先升速再 feed)。 */
@@ -163,18 +229,21 @@ public class Shooter extends SubsystemBase {
             : Constants.kLaunchSlowFeederVelocityRps,
         Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
             ? Constants.kLaunchSlowShooterVoltage
-            : Constants.kLaunchSlowShooterVelocityRps);
+            : Constants.kLaunchSlowShooterVelocityRps)
+        .withName("ShooterLaunchSlow");
   }
 
   /** 按住 B 时只转 feeder(shooter 停转),用于把球送到发射位置。 */
   public Command feedCommand() {
-    return run(
-        () -> {
+    return run(() -> {
+          m_inputs.isFeeding = true;
           m_shooter.setControl(m_stopRequest);
           setFeeder(
               Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
                   ? Constants.kFeederVoltage
                   : Constants.kFeederVelocityRps);
-        });
+        })
+        .finallyDo(() -> m_inputs.isFeeding = false)
+        .withName("ShooterFeed");
   }
 }

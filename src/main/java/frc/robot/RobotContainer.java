@@ -4,7 +4,10 @@
 
 package frc.robot;
 
+import org.littletonrobotics.junction.Logger;
+
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.subsystems.Drive;
 import frc.robot.subsystems.Shooter;
@@ -46,6 +49,33 @@ public class RobotContainer {
 
     // 按住 B 只转 feeder,把球送到发射位置。
     m_controller.b().whileTrue(m_shooter.feedCommand());
+  }
+
+  /**
+   * 每周期由 Robot.robotPeriodic() 调用,记录手柄输入和 command 调度状态。
+   * 这些是 AdvantageKit 日志中的顶层 input 变量。
+   */
+  public void periodic() {
+    // 手柄摇杆输入(底盘命令的 input 来源)。
+    Logger.recordOutput("Controller/leftY", m_controller.getLeftY());
+    Logger.recordOutput("Controller/rightX", m_controller.getRightX());
+
+    // 手柄按键状态。
+    Logger.recordOutput("Controller/leftBumper", m_controller.leftBumper().getAsBoolean());
+    Logger.recordOutput("Controller/rightBumper", m_controller.rightBumper().getAsBoolean());
+    Logger.recordOutput("Controller/rightTrigger", m_controller.rightTrigger().getAsBoolean());
+    Logger.recordOutput("Controller/aButton", m_controller.a().getAsBoolean());
+    Logger.recordOutput("Controller/bButton", m_controller.b().getAsBoolean());
+    Logger.recordOutput("Controller/xButton", m_controller.x().getAsBoolean());
+    Logger.recordOutput("Controller/yButton", m_controller.y().getAsBoolean());
+
+    // 当前正在运行的 command 名称(LoggedRobot 会自动记录 CommandScheduler 状态,这里额外补一个汇总)。
+    Command currentCommand = CommandScheduler.getInstance().requiring(m_drive);
+    Logger.recordOutput("ActiveCommand/drive",
+        currentCommand != null ? currentCommand.getName() : "none");
+    currentCommand = CommandScheduler.getInstance().requiring(m_shooter);
+    Logger.recordOutput("ActiveCommand/shooter",
+        currentCommand != null ? currentCommand.getName() : "none");
   }
 
   /** 自动阶段执行的命令:直接低速射球(先升速再 feed)。 */

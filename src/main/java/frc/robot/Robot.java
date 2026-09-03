@@ -4,16 +4,19 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.TimedRobot;
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 
 /**
- * Command-based 版本的 Robot 主类。
- * CommandRobot 风格:robotPeriodic 里运行 CommandScheduler,
- * 所有周期逻辑由 subsystem 的默认命令和按键绑定的命令自动执行。
+ * 使用 AdvantageKit 的 LoggedRobot 替代 TimedRobot,
+ * 自动记录所有 subsystem 的 input/output 和 command 状态。
  */
-public class Robot extends TimedRobot {
+public class Robot extends LoggedRobot {
   private final RobotContainer m_robotContainer;
   private Command m_autonomousCommand;
 
@@ -22,9 +25,19 @@ public class Robot extends TimedRobot {
   }
 
   @Override
+  public void robotInit() {
+    // 配置 AdvantageKit 日志输出:同时写入 USB 存储(.wpilog)和 NetworkTables(用于 AdvantageScope 实时查看)
+    Logger.addDataReceiver(new WPILOGWriter());
+    Logger.addDataReceiver(new NT4Publisher());
+    Logger.start();
+  }
+
+  @Override
   public void robotPeriodic() {
     // 每个周期运行 command 调度器,这是 command-based 程序的心跳。
     CommandScheduler.getInstance().run();
+    // 记录手柄输入和顶层 command 状态。
+    m_robotContainer.periodic();
   }
 
   @Override
