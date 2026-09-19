@@ -10,8 +10,9 @@ import com.ctre.phoenix6.signals.InvertedValue;
 public final class Constants {
   private Constants() {}
 
-  /** 手柄在 Driver Station 里的端口号。通常第一个手柄是 0。 */
-  public static final int kControllerPort = 0;
+  /** 手柄在 Driver Station 里的端口号。 */
+  public static final int kJoystickPort = 0;
+  public static final int kXboxControllerPort = 1;
 
   /** CAN 总线上各个电机控制器的设备 ID。 */
   public static final int kLeftMasterCanId = 1;

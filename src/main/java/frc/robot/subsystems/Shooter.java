@@ -137,7 +137,7 @@ public class Shooter extends SubsystemBase {
     return atSpeed;
   }
 
-  /** 按住左 bumper 时吸球。 */
+  /** 按住已绑定的吸球按键时吸球。 */
   public Command intakeCommand() {
     return run(() -> {
           m_inputs.isIntaking = true;
@@ -219,7 +219,7 @@ public class Shooter extends SubsystemBase {
             });
   }
 
-  /** 按住右 bumper 时高速射球(先升速再 feed)。 */
+  /** 按住已绑定的高速射球按键时先升速再 feed。 */
   public Command launchFastCommand() {
     return launchCommand(
         Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
@@ -231,7 +231,7 @@ public class Shooter extends SubsystemBase {
         .withName("ShooterLaunchFast");
   }
 
-  /** 按住 Y 时低速射球(先升速再 feed)。 */
+  /** 按住已绑定的低速射球按键时先升速再 feed。 */
   public Command launchSlowCommand() {
     return launchCommand(
         Constants.kShooterControlMode == ShooterControlMode.VOLTAGE
@@ -243,7 +243,7 @@ public class Shooter extends SubsystemBase {
         .withName("ShooterLaunchSlow");
   }
 
-  /** 按住 B 时只转 feeder(shooter 停转),用于把球送到发射位置。 */
+  /** 按住已绑定的 feeder 按键时只转 feeder,用于把球送到发射位置。 */
   public Command feedCommand() {
     return run(() -> {
           m_inputs.isFeeding = true;

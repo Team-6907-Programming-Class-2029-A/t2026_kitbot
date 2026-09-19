@@ -8,7 +8,9 @@ import org.littletonrobotics.junction.Logger;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.subsystems.Drive;
 import frc.robot.subsystems.Shooter;
 
@@ -21,9 +23,13 @@ public class RobotContainer {
   private final Drive m_drive = new Drive();
   private final Shooter m_shooter = new Shooter();
 
-  // 手柄。CommandXboxController 直接提供按键 Trigger,方便绑定命令。
-  private final CommandXboxController m_controller =
-      new CommandXboxController(Constants.kControllerPort);
+  // Logitech Extreme 3D Pro 飞行摇杆。
+  private final CommandJoystick m_joystick =
+      new CommandJoystick(Constants.kJoystickPort);
+
+  // Xbox 手柄保留为射击机构的第二组控制输入。
+  private final CommandXboxController m_xboxController =
+      new CommandXboxController(Constants.kXboxControllerPort);
 
   public RobotContainer() {
     configureButtonBindings();
@@ -31,24 +37,29 @@ public class RobotContainer {
 
   /** 配置手柄按键和命令的绑定。 */
   private void configureButtonBindings() {
-    // 默认命令:teleop 时一直用摇杆开底盘。
+    // 默认命令: Y 轴控制前后,手柄扭转轴控制转向。
     m_drive.setDefaultCommand(
-        m_drive.arcadeDriveCommand(m_controller::getLeftY, m_controller::getRightX));
+        m_drive.arcadeDriveCommand(m_joystick::getY, m_joystick::getTwist));
 
-    // 按住左 bumper 吸球。
-    m_controller.leftBumper().whileTrue(m_shooter.intakeCommand());
+    // Extreme 3D Pro 按钮 1 (扳机) 或 Xbox 右 bumper: 高速射球。
+    Trigger launchFast = m_joystick.button(1).or(m_xboxController.rightBumper());
+    launchFast.whileTrue(m_shooter.launchFastCommand());
 
-    // 按住 X 反向排球,把球从吸球口退出去。
-    m_controller.x().whileTrue(m_shooter.ejectCommand());
+    // Extreme 3D Pro 按钮 2 或 Xbox 右 trigger: 低速射球。
+    Trigger launchSlow = m_joystick.button(2).or(m_xboxController.rightTrigger());
+    launchSlow.whileTrue(m_shooter.launchSlowCommand());
 
-    // 按住右 bumper 高速射球(先升速到目标转速,再 feed 射出)。
-    m_controller.rightBumper().whileTrue(m_shooter.launchFastCommand());
+    // Extreme 3D Pro 按钮 3 或 Xbox 左 bumper: 吸球。
+    Trigger intake = m_joystick.button(3).or(m_xboxController.leftBumper());
+    intake.whileTrue(m_shooter.intakeCommand());
 
-    // 按住 Y 低速射球(先升速到目标转速,再 feed 射出)。
-    m_controller.rightTrigger().whileTrue(m_shooter.launchSlowCommand());
+    // Extreme 3D Pro 按钮 4 或 Xbox X: 反向排球。
+    Trigger eject = m_joystick.button(4).or(m_xboxController.x());
+    eject.whileTrue(m_shooter.ejectCommand());
 
-    // 按住 B 只转 feeder,把球送到发射位置。
-    m_controller.b().whileTrue(m_shooter.feedCommand());
+    // Extreme 3D Pro 按钮 5 或 Xbox B: 只转 feeder。
+    Trigger feed = m_joystick.button(5).or(m_xboxController.b());
+    feed.whileTrue(m_shooter.feedCommand());
   }
 
   /**
@@ -57,17 +68,20 @@ public class RobotContainer {
    */
   public void periodic() {
     // 手柄摇杆输入(底盘命令的 input 来源)。
-    Logger.recordOutput("Controller/leftY", m_controller.getLeftY());
-    Logger.recordOutput("Controller/rightX", m_controller.getRightX());
+    Logger.recordOutput("Controller/y", m_joystick.getY());
+    Logger.recordOutput("Controller/twist", m_joystick.getTwist());
 
     // 手柄按键状态。
-    Logger.recordOutput("Controller/leftBumper", m_controller.leftBumper().getAsBoolean());
-    Logger.recordOutput("Controller/rightBumper", m_controller.rightBumper().getAsBoolean());
-    Logger.recordOutput("Controller/rightTrigger", m_controller.rightTrigger().getAsBoolean());
-    Logger.recordOutput("Controller/aButton", m_controller.a().getAsBoolean());
-    Logger.recordOutput("Controller/bButton", m_controller.b().getAsBoolean());
-    Logger.recordOutput("Controller/xButton", m_controller.x().getAsBoolean());
-    Logger.recordOutput("Controller/yButton", m_controller.y().getAsBoolean());
+    Logger.recordOutput("Controller/button1LaunchFast", m_joystick.getHID().getRawButton(1));
+    Logger.recordOutput("Controller/button2LaunchSlow", m_joystick.getHID().getRawButton(2));
+    Logger.recordOutput("Controller/button3Intake", m_joystick.getHID().getRawButton(3));
+    Logger.recordOutput("Controller/button4Eject", m_joystick.getHID().getRawButton(4));
+    Logger.recordOutput("Controller/button5Feed", m_joystick.getHID().getRawButton(5));
+    Logger.recordOutput("Xbox/leftBumper", m_xboxController.getHID().getLeftBumperButton());
+    Logger.recordOutput("Xbox/rightBumper", m_xboxController.getHID().getRightBumperButton());
+    Logger.recordOutput("Xbox/rightTrigger", m_xboxController.getRightTriggerAxis());
+    Logger.recordOutput("Xbox/bButton", m_xboxController.getHID().getBButton());
+    Logger.recordOutput("Xbox/xButton", m_xboxController.getHID().getXButton());
 
     // 当前正在运行的 command 名称(LoggedRobot 会自动记录 CommandScheduler 状态,这里额外补一个汇总)。
     Command currentCommand = CommandScheduler.getInstance().requiring(m_drive);
